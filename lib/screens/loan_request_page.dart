@@ -1,134 +1,163 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tabulador/models/loan.dart';
+import 'package:tabulador/models/loan_request.dart';
+
+import '../main.dart';
+
+const totalLoanAmountLabel = 'Cantidad del préstamo';
+const monthlyPaymentAmountLabel = 'Pago mensual';
+const termInMonthsLabel = 'Duración en meses';
+const pageTitle = 'Detalles del Préstamo';
+const mainButtonLabel = 'Calcular';
+const clearButtonLabel = 'Reiniciar';
 
 class LoanRequestPage extends StatefulWidget {
+  const LoanRequestPage({super.key});
+
   @override
   State<StatefulWidget> createState() => _LoanRequestPage();
 }
 
 class _LoanRequestPage extends State<LoanRequestPage> {
-  final TextEditingController _totalLoan = TextEditingController();
-  final TextEditingController _montlyPaymentAmount = TextEditingController();
-  final TextEditingController _loanTermInMonths = TextEditingController();
-
-  late FocusNode myFocusNode1;
-  late FocusNode myFocusNode2;
-  late FocusNode myFocusNode3;
-
-  bool monthCheck = false;
-  bool loanCheck = false;
-  bool paymenCheck = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    myFocusNode1 = FocusNode(debugLabel: 'TextField1');
-    myFocusNode2 = FocusNode(debugLabel: 'TextField2');
-    myFocusNode3 = FocusNode(debugLabel: 'TextField3');
-
-    myFocusNode1.addListener(() {
-      if (!myFocusNode1.hasFocus) {
-        if (_totalLoan.text != "") {
-          loanCheck = true;
-        } else {
-          loanCheck = false;
-        }
-      }
-    });
-
-    myFocusNode2.addListener(() {
-      if (!myFocusNode2.hasFocus) {
-        if (_montlyPaymentAmount.text != "") {
-          paymenCheck = true;
-        } else {
-          paymenCheck = false;
-        }
-      }
-    });
-
-    myFocusNode3.addListener(() {
-      if (!myFocusNode3.hasFocus) {
-        if (_loanTermInMonths.text != "") {
-          monthCheck = true;
-        } else {
-          monthCheck = false;
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    myFocusNode1.dispose();
-    myFocusNode2.dispose();
-    myFocusNode3.dispose();
-
-    super.dispose();
-  }
+  bool isMainButtonEnabled = false;
+  LoanRequest loanRequest = const LoanRequest.empty();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text('Tabulador'),
-        ),
-        body: Column(
-          children: <Widget>[
-            _createTextField(myFocusNode1, 'Cantidad del préstamo', _totalLoan),
-            _createTextField(
-                myFocusNode2, 'Pago mensual', _montlyPaymentAmount),
-            _createTextField(
-                myFocusNode3, 'Duración en meses', _loanTermInMonths),
-            ElevatedButton(
-                onPressed: () {
-                  myFocusNode1.unfocus();
-                  myFocusNode2.unfocus();
-                  myFocusNode3.unfocus();
-
-                  Future.delayed(Duration.zero, () {
-                    print('Loan: ${loanCheck} '
-                        'Payment: ${paymenCheck} '
-                        'Month: ${monthCheck}');
-
-                    if (monthCheck && loanCheck && paymenCheck) {
-                      LoanRequest loanRequest = LoanRequest(
-                          double.parse(_totalLoan.text),
-                          double.parse(_montlyPaymentAmount.text),
-                          int.parse(_loanTermInMonths.text));
-
-                      Navigator.pushNamed(context, '/LoanPaymentsDetails',
-                          arguments: loanRequest);
-                    }
-                  });
-                },
-                child: Text("Calcular"))
-          ],
-        ) /*  */
-        );
+      appBar: AppBar(
+        title: const Text(pageTitle),
+      ),
+      body: Column(
+        children: [
+          _InputField(
+            initialValue: loanRequest.totalAmount.toString(),
+            label: totalLoanAmountLabel,
+            onInputFieldListener: (value) {
+              _updateMainButtonEnabledValue(() {
+                double newValue = 0;
+                if (value.isNotEmpty) {
+                  newValue = double.parse(value);
+                }
+                return loanRequest.copyWith(
+                  totalAmount: newValue,
+                );
+              });
+            },
+          ),
+          _InputField(
+            initialValue: loanRequest.monthlyPaymentAmount.toString(),
+            label: monthlyPaymentAmountLabel,
+            onInputFieldListener: (value) {
+              _updateMainButtonEnabledValue(() {
+                double newValue = 0;
+                if (value.isNotEmpty) {
+                  newValue = double.parse(value);
+                }
+                return loanRequest.copyWith(
+                  monthlyPaymentAmount: newValue,
+                );
+              });
+            },
+          ),
+          _InputField(
+            initialValue: loanRequest.termInMonths.toString(),
+            label: termInMonthsLabel,
+            onInputFieldListener: (value) {
+              _updateMainButtonEnabledValue(() {
+                int newValue = 0;
+                if (value.isNotEmpty) {
+                  newValue = int.parse(value);
+                }
+                return loanRequest.copyWith(
+                  termInMonths: newValue,
+                );
+              });
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: ElevatedButton(
+              onPressed: isMainButtonEnabled ? _onCalculateTapped : null,
+              child: const Text(mainButtonLabel),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _createTextField(FocusNode focusNode, String labelText,
-      TextEditingController textEditingController) {
+  void _updateMainButtonEnabledValue(
+    LoanRequest Function() callback,
+  ) {
+    setState(() {
+      loanRequest = callback.call();
+      isMainButtonEnabled = loanRequest.isNotEmpty();
+    });
+  }
+
+  void _resetForm() {
+    _updateMainButtonEnabledValue(
+      () => const LoanRequest.empty(),
+    );
+  }
+
+  void _onCalculateTapped() {
+    if (loanRequest.isNotEmpty()) {
+      Navigator.pushNamed(
+        context,
+        AppRoutes.details,
+        arguments: loanRequest,
+      );
+      _resetForm();
+    }
+  }
+}
+
+typedef OnInputFieldListener = Function(String);
+
+class _InputField extends StatefulWidget {
+  const _InputField({
+    Key? key,
+    required this.label,
+    required this.initialValue,
+    required this.onInputFieldListener,
+  }) : super(key: key);
+
+  final String label;
+  final String initialValue;
+  final OnInputFieldListener onInputFieldListener;
+
+  @override
+  State<_InputField> createState() => _InputFieldState();
+}
+
+class _InputFieldState extends State<_InputField> {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-        margin: EdgeInsets.all(10.0),
-        child: Column(
-          children: [
-            Text(
-              labelText,
-              textAlign: TextAlign.left,
+      margin: const EdgeInsets.all(10.0),
+      child: Column(
+        children: [
+          Text(
+            widget.label,
+            textAlign: TextAlign.left,
+          ),
+          TextFormField(
+            initialValue: widget.initialValue,
+            onChanged: widget.onInputFieldListener,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
             ),
-            TextField(
-              controller: textEditingController,
-              decoration: InputDecoration(border: OutlineInputBorder()),
-              focusNode: focusNode,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
-              ],
-            ),
-          ],
-        ));
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.allow(
+                RegExp(r'^\d+\.?\d{0,2}'),
+              )
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
